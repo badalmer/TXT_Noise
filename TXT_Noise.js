@@ -228,4 +228,16 @@ function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
   calculateGridSize();
   redraw();
+
+  // Adjust the position of the UI elements
+  let panelX = windowWidth - 200;
+  let panelY = 10;
+
+  sizeDropdown.position(panelX + 10, panelY + 10);
+  customWidthInput.position(panelX + 10, panelY + 40);
+  customHeightInput.position(panelX + 10, panelY + 70);
+  generateNoiseButton.position(panelX + 10, panelY + 100);
+  generateTextButton.position(panelX + 10, panelY + 130);
+  pixelSortButton.position(panelX + 10, panelY + 160);
+  saveTextButton.position(panelX + 10, panelY + 190);
 }
