@@ -5,30 +5,34 @@
 
 let cols, rows;
 let scl = 10;
+let panelX, panelY;
+let panelWidth = 200;
+let paletteSize = 6;
 let inc = 0.1;
 let fileCounter = 0;
 let noiseSeedOffset = 0;
 let selectedWidth = 18, selectedHeight = 24;
 let isCustom = false;
+let palette = [];
 let noiseValues = [];
 let sortedNoiseValues = [];
 let showText = false;
 let isSorted = false;
+let bwToggle, isBW = false;
+let outlineToggle, showOutline = false;
 
 let customWidthInput, customHeightInput;
 let sizeDropdown, generateNoiseButton, generateTextButton, pixelSortButton, saveTextButton;
+let paletteSizeLabel, paletteSizeInput;
 let textOutputDiv;
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
-  calculateGridSize();
 
-  let panelX = windowWidth - 200;
-  let panelY = 10;
-  let buttonWidth = 160;
-  
-  let panelW = 200;  // Increase panel width
-  let inputWidth = 140; // Adjusted to make input fields shorter
+  panelX = windowWidth - panelWidth - 10;
+  panelY = 15;
+  let buttonWidth = 180;
+  let inputWidth = 180;
 
   sizeDropdown = createSelect();
   sizeDropdown.position(panelX + 10, panelY + 10);
@@ -37,39 +41,85 @@ function setup() {
   sizeDropdown.option('36" X 48"');
   sizeDropdown.option('Custom');
   sizeDropdown.changed(onSizeChange);
-  sizeDropdown.style('width', buttonWidth + 'px');
+  ButtonStyle(sizeDropdown, buttonWidth);
 
   customWidthInput = createInput();
   customHeightInput = createInput();
   customWidthInput.position(panelX + 10, panelY + 40);
   customHeightInput.position(panelX + 10, panelY + 70);
-  customWidthInput.attribute('placeholder', 'Width');
-  customHeightInput.attribute('placeholder', 'Height');
-  customWidthInput.style('width', inputWidth + 'px');  // Reduced width
-  customHeightInput.style('width', inputWidth + 'px');  // Reduced width
+  customWidthInput.attribute('placeholder', ' Width');
+  customHeightInput.attribute('placeholder', ' Height');
+  ButtonStyle(customWidthInput, inputWidth);
+  ButtonStyle(customHeightInput, inputWidth);
+
+  paletteSizeLabel = createSpan('Palette Size: ');
+  paletteSizeLabel.position(panelX + 10, panelY + 105);
+  paletteSizeLabel.style('color', 'red');
+  paletteSizeLabel.style('font-family', 'monospace');
+  paletteSizeLabel.style('font-size', '12px');
+
+  paletteSizeInput = createInput(paletteSize.toString());
+  paletteSizeInput.position(panelX + 110, panelY + 100);
+  paletteSizeInput.size(75, 20);
+  paletteSizeInput.style('color', 'red');
+  paletteSizeInput.style('background-color', 'black');
+  paletteSizeInput.style('border', '1px solid red');
+  paletteSizeInput.style('font-family', 'monospace');
+  paletteSizeInput.style('text-align', 'center');
+  paletteSizeInput.style('line-height', '25px');
+  paletteSizeInput.style('font-size', '12px');
+  paletteSizeInput.input(() => {
+    let val = int(paletteSizeInput.value());
+    if (!isNaN(val) && val >= 1 && val <= 13) {
+      paletteSize = val;
+      generatePalette();
+      generateNoiseValues();
+      redraw();
+    }
+  });
 
   generateNoiseButton = createButton('Generate Noise');
-  generateNoiseButton.position(panelX + 10, panelY + 100);
-  generateNoiseButton.mousePressed(generateNoise);
-  generateNoiseButton.style('width', buttonWidth + 'px');
+  generateNoiseButton.position(panelX + 10, panelY + 130);
+  generateNoiseButton.mousePressed(() => {
+    generatePalette();
+    generateNoise();
+  });
+  ButtonStyle(generateNoiseButton, buttonWidth);
 
   generateTextButton = createButton('Generate Text');
-  generateTextButton.position(panelX + 10, panelY + 130);
+  generateTextButton.position(panelX + 10, panelY + 160);
   generateTextButton.mousePressed(() => {
     showText = true;
     displayText();
   });
-  generateTextButton.style('width', buttonWidth + 'px');
+  ButtonStyle(generateTextButton, buttonWidth);
 
   pixelSortButton = createButton('Pixel Sort');
-  pixelSortButton.position(panelX + 10, panelY + 160);
+  pixelSortButton.position(panelX + 10, panelY + 190);
   pixelSortButton.mousePressed(pixelSort);
-  pixelSortButton.style('width', buttonWidth + 'px');
-  
+  ButtonStyle(pixelSortButton, buttonWidth);
+
   saveTextButton = createButton('Save Text');
-  saveTextButton.position(panelX + 10, panelY + 190);
+  saveTextButton.position(panelX + 10, panelY + 220);
   saveTextButton.mousePressed(saveTextFile);
-  saveTextButton.style('width', buttonWidth + 'px');
+  ButtonStyle(saveTextButton, buttonWidth);
+
+  bwToggle = createCheckbox('B&W', false);
+  bwToggle.position(panelX + 10, panelY + 250);
+  bwToggle.changed(() => {
+    isBW = bwToggle.checked();
+    generatePalette();
+    generateNoise();
+  });
+  ButtonStyle(bwToggle, buttonWidth);
+
+  outlineToggle = createCheckbox('Outline', false);
+  outlineToggle.position(panelX + 10, panelY + 280);
+  outlineToggle.changed(() => {
+    showOutline = outlineToggle.checked();
+    redraw();
+  });
+  ButtonStyle(outlineToggle, buttonWidth);
 
   textOutputDiv = createDiv('');
   textOutputDiv.style('white-space', 'pre-wrap');
@@ -79,41 +129,42 @@ function setup() {
   textOutputDiv.position(20, 20);
   textOutputDiv.style('width', (windowWidth - 245) + 'px');
   textOutputDiv.style('height', (windowHeight - 60) + 'px');
-  textOutputDiv.style('overflow-x', 'auto'); 
-  textOutputDiv.style('overflow-y', 'auto');
-  textOutputDiv.style('white-space', 'pre'); // Prevent line breaks to enable horizontal scrolling
-  textOutputDiv.style('z-index', '1000');
+  textOutputDiv.style('overflow', 'auto');
   textOutputDiv.hide();
 
-  customWidthInput.input(() => restorePlaceholder(customWidthInput, 'Width'));
-  customHeightInput.input(() => restorePlaceholder(customHeightInput, 'Height'));
-  
-  document.addEventListener('click', (event) => {
-    let isClickInside = textOutputDiv.elt.contains(event.target);
-    let isButtonClick = generateTextButton.elt.contains(event.target);
-  
-    if (!isClickInside && !isButtonClick) {
-      setTimeout(() => {
-        textOutputDiv.hide();
-        showText = false;
-      }, 100); // Small delay to prevent instant hiding
-    }
-  });
+  customWidthInput.input(() => restorePlaceholder(customWidthInput, ' Width'));
+  customHeightInput.input(() => restorePlaceholder(customHeightInput, ' Height'));
 
   noLoop();
+  generatePalette();
+  generateNoise();
+}
+
+function generatePalette() {
+  palette = [];
+  for (let i = 0; i < paletteSize; i++) {
+    if (isBW) {
+      let gray = int(random(255));
+      palette.push(color(gray, gray, gray));
+    } else {
+      palette.push(color(int(random(255)), int(random(255)), int(random(255))));
+    }
+  }
 }
 
 function generateNoise() {
   if (isCustom) {
-    let customW = parseInt(customWidthInput.value());
-    let customH = parseInt(customHeightInput.value());
-
-    if (!isNaN(customW) && customW > 0) selectedWidth = customW;
-    if (!isNaN(customH) && customH > 0) selectedHeight = customH;
+    let customW = int(customWidthInput.value());
+    let customH = int(customHeightInput.value());
+    if (!isNaN(customW)) selectedWidth = customW;
+    if (!isNaN(customH)) selectedHeight = customH;
   }
 
+  cols = int(selectedWidth * 2.5);
+  rows = int(selectedHeight * 2.5);
+
   noiseSeedOffset = random(1000);
-  calculateGridSize();
+
   generateNoiseValues();
   isSorted = false;
   showText = false;
@@ -121,21 +172,20 @@ function generateNoise() {
   redraw();
 }
 
-function calculateGridSize() {
-  cols = int(selectedWidth * 2.5);
-  rows = int(selectedHeight * 2.5);
-  generateNoiseValues();
-}
-
 function generateNoiseValues() {
   noiseValues = [];
   sortedNoiseValues = [];
+
   let yoff = noiseSeedOffset;
   for (let y = 0; y < rows; y++) {
     let row = [];
     let xoff = noiseSeedOffset;
     for (let x = 0; x < cols; x++) {
-      row.push(int(noise(xoff, yoff) * 255));
+      let n = noise(xoff, yoff);
+      n = constrain((n - 0.5) * 1.8 + 0.5, 0, 1); // stretch the contrast
+      let index = int(n * palette.length);
+      index = constrain(index, 0, palette.length - 1);
+      row.push(index);
       xoff += inc;
     }
     noiseValues.push(row);
@@ -144,28 +194,96 @@ function generateNoiseValues() {
   }
 }
 
-function pixelSort() {
+function displayNoise() {
   for (let y = 0; y < rows; y++) {
-    sortedNoiseValues[y].sort((a, b) => a - b);
+    for (let x = 0; x < cols; x++) {
+      let index = isSorted ? sortedNoiseValues[y][x] : noiseValues[y][x];
+      fill(palette[index]);
+      if (showOutline) stroke(0);
+      else noStroke();
+      rect(x * scl, y * scl, scl, scl);
+    }
+  }
+}
+
+function draw() {
+  background(0);
+  displayNoise();
+  drawUIPanel();
+}
+
+function drawUIPanel() {
+  const swatchX = panelX + 10;
+  const swatchY = 350;
+  const swatchSize = 15;
+
+  fill(0);
+  stroke(255, 0, 0);
+  rect(panelX, panelY, panelWidth, height - 30);
+
+  textSize(12);
+  fill(255);
+  noStroke();
+  text("Palette:", swatchX, swatchY - 10);
+
+  for (let i = 0; i < palette.length; i++) {
+    fill(palette[i]);
+    rect(swatchX, swatchY + i * 25, swatchSize, swatchSize);
+
+    let r = red(palette[i]);
+    let g = green(palette[i]);
+    let b = blue(palette[i]);
+
+    fill(255);
+    text(`${int(r)}, ${int(g)}, ${int(b)}`, swatchX + swatchSize + 5, swatchY + i * 25 + 12);
+  }
+}
+
+function pixelSort() {
+  for (let x = 0; x < cols; x++) {
+    let column = [];
+    for (let y = 0; y < rows; y++) {
+      column.push(sortedNoiseValues[y][x]);
+    }
+    column.sort((a, b) => a - b);
+    for (let y = 0; y < rows; y++) {
+      sortedNoiseValues[y][x] = column[y];
+    }
   }
   isSorted = true;
   redraw();
 }
 
+
+function displayText() {
+  let textOutput = (isSorted ? sortedNoiseValues : noiseValues)
+    .map(row => row.map(v => nf(v, 3)).join(' ')).join('\n');
+  textOutputDiv.html(textOutput);
+  textOutputDiv.show();
+}
+
+function saveTextFile() {
+  let textOutput = noiseValues.map(row => row.map(v => nf(v, 3)).join(' ')).join('\n');
+  let fileName = `noise_output_${fileCounter}.txt`;
+  fileCounter++;
+  saveStrings([textOutput], fileName);
+}
+
 function onSizeChange() {
   let selectedSize = sizeDropdown.value();
-
   if (selectedSize === 'Custom') {
     isCustom = true;
     customWidthInput.show();
     customHeightInput.show();
-    customWidthInput.value(selectedWidth || '');
-    customHeightInput.value(selectedHeight || '');
+    customWidthInput.value(selectedWidth);
+    customHeightInput.value(selectedHeight);
   } else {
     isCustom = false;
     let size = selectedSize.split(' X ');
     selectedWidth = int(size[0]);
     selectedHeight = int(size[1]);
+    customWidthInput.hide();
+    customHeightInput.hide();
   }
 }
 
@@ -175,69 +293,40 @@ function restorePlaceholder(inputField, placeholderText) {
   }
 }
 
-function displayText() {
-  // Use sortedNoiseValues when pixel sorting has been applied
-  let textOutput = (isSorted ? sortedNoiseValues : noiseValues)
-    .map(row => row.map(v => nf(v, 3)).join(' ')).join('\n');
-  textOutputDiv.html(textOutput);
-  textOutputDiv.show();
-}
-
-
-function saveTextFile() {
-  let textOutput = noiseValues.map(row => row.map(v => nf(v, 3)).join(' ')).join('\n');
-  let fileName = 'noise_output_${fileCounter}.txt';
-  fileCounter++;
-  saveStrings([textOutput], fileName);
-}
-
-function draw() {
-  background(0);
-  displayNoise();  
-
-  if (showText) {
-    displayText();
-  }
-
-  drawUIPanel();
-}
-
-function displayNoise() {
-  for (let y = 0; y < rows; y++) {
-    for (let x = 0; x < cols; x++) {
-      let brightnessValue = isSorted ? sortedNoiseValues[y][x] : noiseValues[y][x];
-      fill(brightnessValue);
-      noStroke();
-      rect(x * scl, y * scl, scl, scl);
-    }
-  }
-}
-
-function drawUIPanel() {
-  let panelX = windowWidth - 200;
-  let panelY = 10;
-  let panelW = 200; // Adjusted width
-  let panelH = 230;
-
-  fill(0);
-  stroke(255);
-  rect(panelX, panelY, panelW, panelH);
+function ButtonStyle(btn, w) {
+  btn.style('width', w + 'px');
+  btn.style('height', '25px');
+  btn.style('color', 'red');
+  btn.style('background-color', 'black');
+  btn.style('border', '1px solid red');
+  btn.style('padding', '0');
+  btn.style('line-height', '25px');
+  btn.style('font-size', '12px');
+  btn.style('box-sizing', 'border-box');
+  btn.style('font-family', 'monospace');
 }
 
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
-  calculateGridSize();
-  redraw();
 
-  // Adjust the position of the UI elements
-  let panelX = windowWidth - 200;
-  let panelY = 10;
+  panelX = windowWidth - panelWidth - 10;
+  panelY = 15;
 
   sizeDropdown.position(panelX + 10, panelY + 10);
   customWidthInput.position(panelX + 10, panelY + 40);
   customHeightInput.position(panelX + 10, panelY + 70);
-  generateNoiseButton.position(panelX + 10, panelY + 100);
-  generateTextButton.position(panelX + 10, panelY + 130);
-  pixelSortButton.position(panelX + 10, panelY + 160);
-  saveTextButton.position(panelX + 10, panelY + 190);
+  paletteSizeLabel.position(panelX + 10, panelY + 105);
+  paletteSizeInput.position(panelX + 110, panelY + 100);
+  generateNoiseButton.position(panelX + 10, panelY + 130);
+  generateTextButton.position(panelX + 10, panelY + 160);
+  pixelSortButton.position(panelX + 10, panelY + 190);
+  saveTextButton.position(panelX + 10, panelY + 220);
+  bwToggle.position(panelX + 10, panelY + 250);
+  outlineToggle.position(panelX + 10, panelY + 280);
+
+  textOutputDiv.position(20, 20);
+  textOutputDiv.style('width', (panelX - 30) + 'px');
+  textOutputDiv.style('height', (windowHeight - 60) + 'px');
+
+  redraw();
 }
