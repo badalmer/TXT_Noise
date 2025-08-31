@@ -5,6 +5,7 @@
 
 let cols, rows;
 let scl = 10;
+const SCALE_INCH_TO_PIX = 2.639;
 let panelX, panelY;
 let panelWidth = 200;
 let paletteSize = 6;
@@ -20,11 +21,47 @@ let showText = false;
 let isSorted = false;
 let bwToggle, isBW = false;
 let outlineToggle, showOutline = false;
+let sortDirection = 'vertical';
 
 let customWidthInput, customHeightInput;
-let sizeDropdown, generateNoiseButton, generateTextButton, pixelSortButton, saveTextButton;
-let paletteSizeLabel, paletteSizeInput;
+let sizeDropdown, generateNoiseButton, generateTextButton, pixelSortButton, saveTextButton, saveSVGButton;
+let paletteSizeLabel, paletteSizeInput, pixelSizeLabel, pixelSizeInput;
 let textOutputDiv;
+
+function rgbToHex(c) {
+  let r = red(c).toString(16).padStart(2, '0');
+  let g = green(c).toString(16).padStart(2, '0');
+  let b = blue(c).toString(16).padStart(2, '0');
+  return `#${r}${g}${b}`;
+}
+
+function exportSVG() {
+  let svgWidth = cols * scl;
+  let svgHeight = rows * scl;
+  
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${svgWidth}" height="${svgHeight}">\n`;
+
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      let index = isSorted ? sortedNoiseValues[y][x] : noiseValues[y][x];
+      let hexColor = rgbToHex(palette[index]);
+      let strokeAttr = showOutline ? ` stroke="black"` : '';
+      svg += `<rect x="${x * scl}" y="${y * scl}" width="${scl}" height="${scl}" fill="${hexColor}"${strokeAttr}/>\n`;
+    }
+  }
+
+  svg += '</svg>';
+
+  let blob = new Blob([svg], { type: "image/svg+xml" });
+  let url = URL.createObjectURL(blob);
+  let a = document.createElement("a");
+  a.href = url;
+  a.download = `noise_output_${fileCounter}.svg`;
+  a.click();
+  URL.revokeObjectURL(url);
+  fileCounter++;
+}
+
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
@@ -32,11 +69,12 @@ function setup() {
   panelX = windowWidth - panelWidth - 10;
   panelY = 15;
   let buttonWidth = 180;
-  let inputWidth = 180;
+  let inputWidth = 180;  
 
   sizeDropdown = createSelect();
   sizeDropdown.position(panelX + 10, panelY + 10);
   sizeDropdown.option('18" X 24"');
+  sizeDropdown.option('30" X 30"');
   sizeDropdown.option('24" X 36"');
   sizeDropdown.option('36" X 48"');
   sizeDropdown.option('Custom');
@@ -70,7 +108,7 @@ function setup() {
   paletteSizeInput.style('font-size', '12px');
   paletteSizeInput.input(() => {
     let val = int(paletteSizeInput.value());
-    if (!isNaN(val) && val >= 1 && val <= 13) {
+    if (!isNaN(val) && val >= 1 && val <= 11) {
       paletteSize = val;
       generatePalette();
       generateNoiseValues();
@@ -96,7 +134,10 @@ function setup() {
 
   pixelSortButton = createButton('Pixel Sort');
   pixelSortButton.position(panelX + 10, panelY + 190);
-  pixelSortButton.mousePressed(pixelSort);
+  pixelSortButton.mousePressed(() => {
+    sortDirection = (sortDirection === 'vertical') ? 'horizontal' : 'vertical';
+    glitchPixelSort(sortDirection);
+  });
   ButtonStyle(pixelSortButton, buttonWidth);
 
   saveTextButton = createButton('Save Text');
@@ -104,8 +145,13 @@ function setup() {
   saveTextButton.mousePressed(saveTextFile);
   ButtonStyle(saveTextButton, buttonWidth);
 
+  saveSVGButton = createButton('Save SVG');
+  saveSVGButton.position(panelX + 10, panelY + 250);
+  saveSVGButton.mousePressed(exportSVG);
+  ButtonStyle(saveSVGButton, buttonWidth);
+
   bwToggle = createCheckbox('B&W', false);
-  bwToggle.position(panelX + 10, panelY + 250);
+  bwToggle.position(panelX + 10, panelY + 280);
   bwToggle.changed(() => {
     isBW = bwToggle.checked();
     generatePalette();
@@ -114,12 +160,12 @@ function setup() {
   ButtonStyle(bwToggle, buttonWidth);
 
   outlineToggle = createCheckbox('Outline', false);
-  outlineToggle.position(panelX + 10, panelY + 280);
+  outlineToggle.position(panelX + 100, panelY + 280);
   outlineToggle.changed(() => {
     showOutline = outlineToggle.checked();
     redraw();
   });
-  ButtonStyle(outlineToggle, buttonWidth);
+  ButtonStyle(outlineToggle, buttonWidth/2);
 
   textOutputDiv = createDiv('');
   textOutputDiv.style('white-space', 'pre-wrap');
@@ -159,10 +205,12 @@ function generateNoise() {
     if (!isNaN(customW)) selectedWidth = customW;
     if (!isNaN(customH)) selectedHeight = customH;
   }
-
+  
   cols = int(selectedWidth * 2.5);
   rows = int(selectedHeight * 2.5);
-
+  
+  scl = floor(min((width - panelWidth - 20) / cols, (height - 20) / rows));
+  
   noiseSeedOffset = random(1000);
 
   generateNoiseValues();
@@ -182,7 +230,7 @@ function generateNoiseValues() {
     let xoff = noiseSeedOffset;
     for (let x = 0; x < cols; x++) {
       let n = noise(xoff, yoff);
-      n = constrain((n - 0.5) * 1.8 + 0.5, 0, 1); // stretch the contrast
+      n = constrain((n - 0.5) * 1.8 + 0.5, 0, 1); // stretch
       let index = int(n * palette.length);
       index = constrain(index, 0, palette.length - 1);
       row.push(index);
@@ -239,21 +287,58 @@ function drawUIPanel() {
   }
 }
 
-function pixelSort() {
-  for (let x = 0; x < cols; x++) {
-    let column = [];
-    for (let y = 0; y < rows; y++) {
-      column.push(sortedNoiseValues[y][x]);
-    }
-    column.sort((a, b) => a - b);
-    for (let y = 0; y < rows; y++) {
-      sortedNoiseValues[y][x] = column[y];
-    }
+function glitchPixelSort(direction = 'vertical') {
+  let glitchiness = random(0.2, 0.9);
+
+  switch(direction) {
+    case 'vertical':
+      for (let x = 0; x < cols; x++) {
+        let column = [], positions = [];
+        let threshold = random(0.2, 0.8);
+        for (let y = 0; y < rows; y++) {
+          let val = noiseValues[y][x];
+          if (val >= threshold && random(1) > glitchiness) {
+            column.push(val);
+            positions.push(y);
+          }
+        }
+        if (column.length > 1) {
+          if (random(1) < 0.5) column.reverse();
+          else column.sort((a,b)=>a-b);
+        }
+        for (let i = 0; i < positions.length; i++) {
+          let index = int(column[i] * palette.length);
+          sortedNoiseValues[positions[i]][x] = constrain(index, 0, palette.length-1);
+        }
+      }
+      break;
+
+    case 'horizontal':
+      for (let y = 0; y < rows; y++) {
+        let row = [], positions = [];
+        let threshold = random(0.2, 0.8);
+        for (let x = 0; x < cols; x++) {
+          let val = noiseValues[y][x];
+          if (val >= threshold && random(1) > glitchiness) {
+            row.push(val);
+            positions.push(x);
+          }
+        }
+        if (row.length > 1) {
+          if (random(1) < 0.5) row.reverse();
+          else row.sort((a,b)=>a-b);
+        }
+        for (let i = 0; i < positions.length; i++) {
+          let index = int(row[i] * palette.length);
+          sortedNoiseValues[y][positions[i]] = constrain(index, 0, palette.length-1);
+        }
+      }
+      break;
   }
+
   isSorted = true;
   redraw();
 }
-
 
 function displayText() {
   let textOutput = (isSorted ? sortedNoiseValues : noiseValues)
@@ -285,6 +370,7 @@ function onSizeChange() {
     customWidthInput.hide();
     customHeightInput.hide();
   }
+  generateNoise();
 }
 
 function restorePlaceholder(inputField, placeholderText) {
@@ -321,8 +407,9 @@ function windowResized() {
   generateTextButton.position(panelX + 10, panelY + 160);
   pixelSortButton.position(panelX + 10, panelY + 190);
   saveTextButton.position(panelX + 10, panelY + 220);
-  bwToggle.position(panelX + 10, panelY + 250);
-  outlineToggle.position(panelX + 10, panelY + 280);
+  saveSVGButton.position(panelX + 10, panelY + 250);
+  bwToggle.position(panelX + 10, panelY + 280);
+  outlineToggle.position(panelX + 100, panelY + 280);
 
   textOutputDiv.position(20, 20);
   textOutputDiv.style('width', (panelX - 30) + 'px');
