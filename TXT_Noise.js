@@ -1,5 +1,5 @@
 ///////////////////////////////
-// Brandon A. Dalmer - 2025
+// Brandon A. Dalmer - 2026
 // Noise Cloud - TXT
 ///////////////////////////////
 
@@ -11,6 +11,9 @@ let panelWidth = 200;
 let paletteSize = 6;
 let inc = 0.1;
 let fileCounter = 0;
+let seedInput;
+let seedLabel;
+let baseSeed = 0;
 let noiseSeedOffset = 0;
 let selectedWidth = 18, selectedHeight = 24;
 let isCustom = false;
@@ -22,10 +25,10 @@ let isSorted = false;
 let bwToggle, isBW = false;
 let outlineToggle, showOutline = false;
 let sortDirection = 'vertical';
-
 let customWidthInput, customHeightInput;
 let sizeDropdown, generateNoiseButton, generateTextButton, pixelSortButton, saveTextButton, saveSVGButton;
-let paletteSizeLabel, paletteSizeInput, pixelSizeLabel, pixelSizeInput;
+let paletteSizeLabel, paletteSizeInput;
+let pixelSizeLabel, pixelSizeInput;
 let textOutputDiv;
 
 function rgbToHex(c) {
@@ -62,14 +65,12 @@ function exportSVG() {
   fileCounter++;
 }
 
-
-function setup() {
-  createCanvas(windowWidth, windowHeight);
-
+function setup(){
+  createCanvas(windowWidth,windowHeight);
+  
   panelX = windowWidth - panelWidth - 10;
   panelY = 15;
   let buttonWidth = 180;
-  let inputWidth = 180;  
 
   sizeDropdown = createSelect();
   sizeDropdown.position(panelX + 10, panelY + 10);
@@ -77,6 +78,7 @@ function setup() {
   sizeDropdown.option('30" X 30"');
   sizeDropdown.option('24" X 36"');
   sizeDropdown.option('36" X 48"');
+  sizeDropdown.option('48" X 48"');
   sizeDropdown.option('Custom');
   sizeDropdown.changed(onSizeChange);
   ButtonStyle(sizeDropdown, buttonWidth);
@@ -87,97 +89,137 @@ function setup() {
   customHeightInput.position(panelX + 10, panelY + 70);
   customWidthInput.attribute('placeholder', ' Width');
   customHeightInput.attribute('placeholder', ' Height');
-  ButtonStyle(customWidthInput, inputWidth);
-  ButtonStyle(customHeightInput, inputWidth);
+  ButtonStyle(customWidthInput, buttonWidth);
+  ButtonStyle(customHeightInput, buttonWidth);
 
   paletteSizeLabel = createSpan('Palette Size: ');
   paletteSizeLabel.position(panelX + 10, panelY + 105);
-  paletteSizeLabel.style('color', 'red');
+  paletteSizeLabel.style('color','red');
   paletteSizeLabel.style('font-family', 'monospace');
   paletteSizeLabel.style('font-size', '12px');
-
-  paletteSizeInput = createInput(paletteSize.toString());
-  paletteSizeInput.position(panelX + 110, panelY + 100);
-  paletteSizeInput.size(75, 20);
-  paletteSizeInput.style('color', 'red');
-  paletteSizeInput.style('background-color', 'black');
-  paletteSizeInput.style('border', '1px solid red');
-  paletteSizeInput.style('font-family', 'monospace');
-  paletteSizeInput.style('text-align', 'center');
-  paletteSizeInput.style('line-height', '25px');
-  paletteSizeInput.style('font-size', '12px');
+  
+  paletteSizeInput = createSlider(1, 11, paletteSize, 1);
+  paletteSizeInput.position(panelX + 10, panelY + 118);
+  ButtonStyle(paletteSizeInput, buttonWidth);
   paletteSizeInput.input(() => {
-    let val = int(paletteSizeInput.value());
-    if (!isNaN(val) && val >= 1 && val <= 11) {
-      paletteSize = val;
-      generatePalette();
+    paletteSize = paletteSizeInput.value();
+    generatePalette();
+    generateNoiseValues();
+    redraw();
+  });
+
+  pixelSizeLabel = createSpan("Pixel Size:");
+  pixelSizeLabel.position(panelX + 10, panelY + 155);
+  pixelSizeLabel.style("color", "red");
+  pixelSizeLabel.style("font-family", "monospace");
+  pixelSizeLabel.style("font-size", "12px");
+  
+  pixelSizeInput = createInput(scl.toString());
+  pixelSizeInput.position(panelX + 110, panelY + 150);
+  pixelSizeInput.size(75, 20);
+  pixelSizeInput.style('color', 'red');
+  pixelSizeInput.style('background-color', 'black');
+  pixelSizeInput.style('border', '1px solid red');
+  pixelSizeInput.style('font-family', 'monospace');
+  pixelSizeInput.style('text-align', 'center');
+  pixelSizeInput.style('line-height', '25px');
+  pixelSizeInput.style('font-size', '12px');
+  pixelSizeInput.input(() => {
+    let val = float(pixelSizeInput.value());
+    if(!isNaN(val) && val > 1){
+      scl = val;
+      generateNoise();
+    }
+  });
+
+  seedLabel = createSpan("Seed:");
+  seedLabel.position(panelX + 10, panelY + 180);
+  seedLabel.style("color", "red");
+  seedLabel.style("font-family", "monospace");
+  seedLabel.style("font-size", "12px");
+  
+  seedInput = createInput("0");
+  seedInput.position(panelX + 110, panelY + 175);
+  seedInput.size(75, 20); 
+  seedInput.style('color', 'red');
+  seedInput.style('background-color', 'black');
+  seedInput.style('border', '1px solid red');
+  seedInput.style('font-family', 'monospace');
+  seedInput.style('text-align', 'center');
+  seedInput.style('line-height', '25px');
+  seedInput.style('font-size', '12px');
+  seedInput.input(() => {
+    let val = float(seedInput.value());
+    if(!isNaN(val)){
+      baseSeed = val;
+      noiseSeed(baseSeed);
       generateNoiseValues();
       redraw();
     }
   });
 
-  generateNoiseButton = createButton('Generate Noise');
-  generateNoiseButton.position(panelX + 10, panelY + 130);
+  generateNoiseButton = createButton("Generate Noise");
+  generateNoiseButton.position(panelX + 10, panelY + 205);
   generateNoiseButton.mousePressed(() => {
     generatePalette();
     generateNoise();
   });
   ButtonStyle(generateNoiseButton, buttonWidth);
 
-  generateTextButton = createButton('Generate Text');
-  generateTextButton.position(panelX + 10, panelY + 160);
+  generateTextButton = createButton("Generate Text");
+  generateTextButton.position(panelX + 10, panelY + 235);
   generateTextButton.mousePressed(() => {
     showText = true;
     displayText();
   });
   ButtonStyle(generateTextButton, buttonWidth);
 
-  pixelSortButton = createButton('Pixel Sort');
-  pixelSortButton.position(panelX + 10, panelY + 190);
-  pixelSortButton.mousePressed(() => {
-    sortDirection = (sortDirection === 'vertical') ? 'horizontal' : 'vertical';
+  pixelSortButton = createButton("Pixel Sort");
+  pixelSortButton.position(panelX + 10, panelY + 265);
+  pixelSortButton.mousePressed(()=> {
+    sortDirection = (sortDirection === "vertical") ? "horizontal" : "vertical";
     glitchPixelSort(sortDirection);
   });
-  ButtonStyle(pixelSortButton, buttonWidth);
+  ButtonStyle(pixelSortButton,buttonWidth);
 
-  saveTextButton = createButton('Save Text');
-  saveTextButton.position(panelX + 10, panelY + 220);
+  saveTextButton = createButton("Save Text");
+  saveTextButton.position(panelX + 10, panelY + 295);
   saveTextButton.mousePressed(saveTextFile);
   ButtonStyle(saveTextButton, buttonWidth);
 
-  saveSVGButton = createButton('Save SVG');
-  saveSVGButton.position(panelX + 10, panelY + 250);
+  saveSVGButton = createButton("Save SVG");
+  saveSVGButton.position(panelX + 10, panelY + 325);
   saveSVGButton.mousePressed(exportSVG);
   ButtonStyle(saveSVGButton, buttonWidth);
 
-  bwToggle = createCheckbox('B&W', false);
-  bwToggle.position(panelX + 10, panelY + 280);
-  bwToggle.changed(() => {
+  bwToggle = createCheckbox("B&W", false);
+  bwToggle.position(panelX + 10, panelY + 355);
+  bwToggle.changed(()=> {
     isBW = bwToggle.checked();
     generatePalette();
     generateNoise();
   });
   ButtonStyle(bwToggle, buttonWidth);
 
-  outlineToggle = createCheckbox('Outline', false);
-  outlineToggle.position(panelX + 100, panelY + 280);
-  outlineToggle.changed(() => {
+  outlineToggle = createCheckbox("Outline", false);
+  outlineToggle.position(panelX + 100, panelY + 355);
+  outlineToggle.changed(()=> {
     showOutline = outlineToggle.checked();
     redraw();
   });
   ButtonStyle(outlineToggle, buttonWidth/2);
 
-  textOutputDiv = createDiv('');
-  textOutputDiv.style('white-space', 'pre-wrap');
-  textOutputDiv.style('font-family', 'monospace');
-  textOutputDiv.style('background-color', '#f0f0f0');
-  textOutputDiv.style('font-size', '6px');
+  textOutputDiv = createDiv("");
+  textOutputDiv.style("white-space", "pre-wrap");
+  textOutputDiv.style("font-family", "monospace");
+  textOutputDiv.style("background-color", "#f0f0f0");
+  textOutputDiv.style("font-size", "6px");
   textOutputDiv.position(20, 20);
-  textOutputDiv.style('width', (windowWidth - 245) + 'px');
-  textOutputDiv.style('height', (windowHeight - 60) + 'px');
-  textOutputDiv.style('overflow', 'auto');
+  textOutputDiv.style("width", (windowWidth - 245) + "px");
+  textOutputDiv.style("height", (windowHeight - 60) + "px");
+  textOutputDiv.style("overflow", "auto");
   textOutputDiv.hide();
-
+  
   customWidthInput.input(() => restorePlaceholder(customWidthInput, ' Width'));
   customHeightInput.input(() => restorePlaceholder(customHeightInput, ' Height'));
 
@@ -187,36 +229,52 @@ function setup() {
 }
 
 function generatePalette() {
-  palette = [];
-  for (let i = 0; i < paletteSize; i++) {
-    if (isBW) {
-      let gray = int(random(255));
-      palette.push(color(gray, gray, gray));
-    } else {
-      palette.push(color(int(random(255)), int(random(255)), int(random(255))));
+
+  if (palette.length < paletteSize) {
+    let toAdd = paletteSize - palette.length;
+
+    for (let i = 0; i < toAdd; i++) {
+      if (isBW) {
+        let gray = int(random(255));
+        palette.push(color(gray, gray, gray));
+      } else {
+        palette.push(color(int(random(255)), int(random(255)), int(random(255))));
+      }
     }
   }
+
+  if (palette.length > paletteSize) {
+    palette.splice(paletteSize);
+  }
+
 }
 
 function generateNoise() {
   if (isCustom) {
     let customW = int(customWidthInput.value());
     let customH = int(customHeightInput.value());
+
     if (!isNaN(customW)) selectedWidth = customW;
     if (!isNaN(customH)) selectedHeight = customH;
   }
-  
-  cols = int(selectedWidth * 2.5);
-  rows = int(selectedHeight * 2.5);
-  
+
+  let pixelSize = float(pixelSizeInput.value()) || 10;
+
+  cols = int((selectedWidth * 2.5) / (pixelSize / 10));
+  rows = int((selectedHeight * 2.5) / (pixelSize / 10));
+
+  cols = max(1, cols);
+  rows = max(1, rows);
+
   scl = floor(min((width - panelWidth - 20) / cols, (height - 20) / rows));
-  
+
   noiseSeedOffset = random(1000);
 
   generateNoiseValues();
   isSorted = false;
   showText = false;
   textOutputDiv.hide();
+
   redraw();
 }
 
@@ -254,7 +312,7 @@ function displayNoise() {
   }
 }
 
-function draw() {
+function draw(){
   background(0);
   displayNoise();
   drawUIPanel();
@@ -262,7 +320,7 @@ function draw() {
 
 function drawUIPanel() {
   const swatchX = panelX + 10;
-  const swatchY = 350;
+  const swatchY = 425;
   const swatchSize = 15;
 
   fill(0);
@@ -403,13 +461,17 @@ function windowResized() {
   customHeightInput.position(panelX + 10, panelY + 70);
   paletteSizeLabel.position(panelX + 10, panelY + 105);
   paletteSizeInput.position(panelX + 110, panelY + 100);
-  generateNoiseButton.position(panelX + 10, panelY + 130);
-  generateTextButton.position(panelX + 10, panelY + 160);
-  pixelSortButton.position(panelX + 10, panelY + 190);
-  saveTextButton.position(panelX + 10, panelY + 220);
-  saveSVGButton.position(panelX + 10, panelY + 250);
-  bwToggle.position(panelX + 10, panelY + 280);
-  outlineToggle.position(panelX + 100, panelY + 280);
+  pixelSizeLabel.position(panelX + 10, panelY + 130);
+  pixelSizeInput.position(panelX + 110, panelY + 125);
+  seedLabel.position(panelX + 10, panelY + 155);
+  seedInput.position(panelX + 110, panelY + 150);
+  generateNoiseButton.position(panelX + 10, panelY + 180);
+  generateTextButton.position(panelX + 10, panelY + 210);
+  pixelSortButton.position(panelX + 10, panelY + 240);
+  saveTextButton.position(panelX + 10, panelY + 270);
+  saveSVGButton.position(panelX + 10, panelY + 300);
+  bwToggle.position(panelX + 10, panelY + 330);
+  outlineToggle.position(panelX + 100, panelY + 330);
 
   textOutputDiv.position(20, 20);
   textOutputDiv.style('width', (panelX - 30) + 'px');
