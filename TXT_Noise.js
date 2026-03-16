@@ -98,7 +98,7 @@ function setup(){
   paletteSizeLabel.style('font-family', 'monospace');
   paletteSizeLabel.style('font-size', '12px');
   
-  paletteSizeInput = createSlider(1, 11, paletteSize, 1);
+  paletteSizeInput = createSlider(1, 10, paletteSize, 1);
   paletteSizeInput.position(panelX + 10, panelY + 118);
   ButtonStyle(paletteSizeInput, buttonWidth);
   paletteSizeInput.input(() => {
