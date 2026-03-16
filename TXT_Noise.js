@@ -161,7 +161,7 @@ function setup(){
   generateNoiseButton = createButton("Generate Noise");
   generateNoiseButton.position(panelX + 10, panelY + 205);
   generateNoiseButton.mousePressed(() => {
-    generatePalette();
+    generatePalette(true);
     generateNoise();
   });
   ButtonStyle(generateNoiseButton, buttonWidth);
@@ -228,7 +228,10 @@ function setup(){
   generateNoise();
 }
 
-function generatePalette() {
+function generatePalette(forcedRefresh = false) {
+  if (forceRefresh) {
+    palette = [];
+  }
 
   if (palette.length < paletteSize) {
     let toAdd = paletteSize - palette.length;
@@ -246,7 +249,6 @@ function generatePalette() {
   if (palette.length > paletteSize) {
     palette.splice(paletteSize);
   }
-
 }
 
 function generateNoise() {
