@@ -228,11 +228,12 @@ function setup(){
   generateNoise();
 }
 
-function generatePalette(forcedRefresh = false) {
+function generatePalette(forceRefresh = false) {
   if (forceRefresh) {
     palette = [];
   }
-
+  
+  
   if (palette.length < paletteSize) {
     let toAdd = paletteSize - palette.length;
 
@@ -462,18 +463,18 @@ function windowResized() {
   customWidthInput.position(panelX + 10, panelY + 40);
   customHeightInput.position(panelX + 10, panelY + 70);
   paletteSizeLabel.position(panelX + 10, panelY + 105);
-  paletteSizeInput.position(panelX + 110, panelY + 100);
-  pixelSizeLabel.position(panelX + 10, panelY + 130);
-  pixelSizeInput.position(panelX + 110, panelY + 125);
-  seedLabel.position(panelX + 10, panelY + 155);
-  seedInput.position(panelX + 110, panelY + 150);
-  generateNoiseButton.position(panelX + 10, panelY + 180);
-  generateTextButton.position(panelX + 10, panelY + 210);
-  pixelSortButton.position(panelX + 10, panelY + 240);
-  saveTextButton.position(panelX + 10, panelY + 270);
-  saveSVGButton.position(panelX + 10, panelY + 300);
-  bwToggle.position(panelX + 10, panelY + 330);
-  outlineToggle.position(panelX + 100, panelY + 330);
+  paletteSizeInput.position(panelX + 10, panelY + 118);
+  pixelSizeLabel.position(panelX + 10, panelY + 155);
+  pixelSizeInput.position(panelX + 110, panelY + 150);
+  seedLabel.position(panelX + 10, panelY + 180);
+  seedInput.position(panelX + 110, panelY + 175);
+  generateNoiseButton.position(panelX + 10, panelY + 205);
+  generateTextButton.position(panelX + 10, panelY + 235);
+  pixelSortButton.position(panelX + 10, panelY + 265);
+  saveTextButton.position(panelX + 10, panelY + 295);
+  saveSVGButton.position(panelX + 10, panelY + 325);
+  bwToggle.position(panelX + 10, panelY + 355);
+  outlineToggle.position(panelX + 100, panelY + 355);
 
   textOutputDiv.position(20, 20);
   textOutputDiv.style('width', (panelX - 30) + 'px');
