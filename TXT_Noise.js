@@ -272,7 +272,7 @@ function setup(){
   
   paletteModeDropdown = createSelect();
   paletteModeDropdown.position(panelX + 10, panelY + 100);
-  paletteModeDropdown.option("Random Colors", "random");
+  paletteModeDropdown.option("Generate Colors", "random");
   paletteModeDropdown.option("Golden Heavy Body", "golden");
   paletteModeDropdown.selected("random");
   paletteModeDropdown.changed(() => {
